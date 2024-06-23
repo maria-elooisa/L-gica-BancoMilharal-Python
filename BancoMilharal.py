@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Decorador para registrar data, hora e tipo de transação
 def registrar_transacao(func):
@@ -45,6 +45,10 @@ class Historico:
     def __iter__(self):
         return iter(self.transacoes)
 
+    def transacoes_de_hoje(self):
+        hoje = datetime.now().date()
+        return [t for t in self.transacoes if datetime.strptime(t.data_hora, '%Y-%m-%d %H:%M:%S').date() == hoje]
+
 class Conta:
     def __init__(self, cliente, numero):
         self.saldo = 0.0
@@ -53,14 +57,23 @@ class Conta:
         self.historico = Historico()
 
     def sacar(self, valor):
-        saque = Saque(valor)
-        if saque.registrar(self):
-            return True
+        if self.transacoes_diarias() < 10:
+            saque = Saque(valor)
+            if saque.registrar(self):
+                return True
+        else:
+            print("Limite de transações diárias excedido.")
         return False
 
     def depositar(self, valor):
-        deposito = Deposito(valor)
-        deposito.registrar(self)
+        if self.transacoes_diarias() < 10:
+            deposito = Deposito(valor)
+            deposito.registrar(self)
+        else:
+            print("Limite de transações diárias excedido.")
+
+    def transacoes_diarias(self):
+        return len(self.historico.transacoes_de_hoje())
 
 class ContaCorrente(Conta):
     def __init__(self, cliente, numero, limite, limite_saques):
@@ -74,6 +87,8 @@ class ContaCorrente(Conta):
             if super().sacar(valor):
                 self.numero_saques += 1
                 return True
+        else:
+            print("Número de saques diários excedido.")
         return False
 
 class Cliente:
@@ -113,7 +128,8 @@ Escolha uma operação para seguir:
 [2] Saque
 [3] Extrato
 [4] Cadastrar nova conta
-[5] Sair
+[5] Mudar de conta
+[6] Sair
 => '''
 
 home = '''
@@ -232,6 +248,9 @@ while True:
         conta_atual = selecionar_conta(contas, cliente_atual.cpf)
 
     elif opcao == "5":
+        conta_atual = selecionar_conta(contas, cliente_atual.cpf)
+
+    elif opcao == "6":
         print("Obrigado por usar o Banco Milharal. Até logo!")
         break
 
