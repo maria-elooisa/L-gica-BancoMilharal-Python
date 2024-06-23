@@ -1,4 +1,14 @@
-from datetime import date
+from datetime import datetime
+
+# Decorador para registrar data, hora e tipo de transação
+def registrar_transacao(func):
+    def wrapper(self, conta):
+        self.data_hora = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        tipo_transacao = type(self).__name__
+        print(f"{self.data_hora} - {tipo_transacao}")
+        result = func(self, conta)
+        return result
+    return wrapper
 
 class Transacao:
     def registrar(self, conta):
@@ -8,6 +18,7 @@ class Deposito(Transacao):
     def __init__(self, valor):
         self.valor = valor
 
+    @registrar_transacao
     def registrar(self, conta):
         conta.saldo += self.valor
         conta.historico.adicionar_transacao(self)
@@ -16,6 +27,7 @@ class Saque(Transacao):
     def __init__(self, valor):
         self.valor = valor
 
+    @registrar_transacao
     def registrar(self, conta):
         if conta.saldo >= self.valor:
             conta.saldo -= self.valor
@@ -29,6 +41,9 @@ class Historico:
 
     def adicionar_transacao(self, transacao):
         self.transacoes.append(transacao)
+
+    def __iter__(self):
+        return iter(self.transacoes)
 
 class Conta:
     def __init__(self, cliente, numero):
@@ -75,6 +90,21 @@ class Cliente:
     def realizar_transacao(self, conta, transacao):
         transacao.registrar(conta)
 
+class Contalterador:
+    def __init__(self, contas):
+        self._contas = contas
+        self._index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self._index < len(self._contas):
+            conta = self._contas[self._index]
+            self._index += 1
+            return conta
+        raise StopIteration
+
 menu = '''
 MENU DE OPÇÕES:
 
@@ -82,7 +112,8 @@ Escolha uma operação para seguir:
 [1] Depósito
 [2] Saque
 [3] Extrato
-[4] Sair
+[4] Cadastrar nova conta
+[5] Sair
 => '''
 
 home = '''
@@ -160,11 +191,11 @@ def op_saque(conta):
 
 def op_extrato(conta):
     print("HISTÓRICO DE TRANSAÇÕES:")
-    for transacao in conta.historico.transacoes:
+    for transacao in conta.historico:
         if isinstance(transacao, Deposito):
-            print(f"Depósito: R$ {transacao.valor:.2f}")
+            print(f"{transacao.data_hora} - Depósito: R$ {transacao.valor:.2f}")
         elif isinstance(transacao, Saque):
-            print(f"Saque: R$ {transacao.valor:.2f}")
+            print(f"{transacao.data_hora} - Saque: R$ {transacao.valor:.2f}")
     print(f"Saldo atual: R$ {conta.saldo:.2f}")
 
 while True:
@@ -197,6 +228,10 @@ while True:
         op_extrato(conta_atual)
 
     elif opcao == "4":
+        contas = cadastrar_conta(contas, cliente_atual)
+        conta_atual = selecionar_conta(contas, cliente_atual.cpf)
+
+    elif opcao == "5":
         print("Obrigado por usar o Banco Milharal. Até logo!")
         break
 
